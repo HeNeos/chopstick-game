@@ -363,6 +363,19 @@
                     return;
                 }
 
+                // Initial movement
+                if (computer.hands.length === 2 && human.hands.length === 2 && human.hands[0] === 1 && human.hands[1] === 1) {
+                    if(computer.hands[0] === 1 && computer.hands[1] === 2){
+                        performAttack('player2', 0, 'player1', 0);
+                        return;
+                    }
+                    if(computer.hands[0] === 2 && computer.hands[1] === 1){
+                        performAttack('player2', 1, 'player1', 0);
+                        return;
+                    }
+                    
+                }
+
                 if (computer.hands.length === 1 && human.hands.length === 1 && computer.hands[0] + human.hands[0] === 5) {
                     performAttack('player2', 0, 'player1', 0);
                     return;
