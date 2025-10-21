@@ -363,19 +363,54 @@
                     return;
                 }
 
+                if (computer.hands.length === 1 && human.hands.length === 1 && computer.hands[0] + human.hands[0] === 5) {
+                    performAttack('player2', 0, 'player1', 0);
+                    return;
+                }
+
                 // AI Logic: Prioritize splitting if possible and beneficial, otherwise attack
                 const canSplit = computer.hands.length === 1 && computer.hands[0] > 0 && computer.hands[0] % 2 === 0;
 
                 if (canSplit) {
-                    // Simple AI: always split if possible and it's a "good" split (e.g., 4 -> 2,2)
-                    // If the only hand is 2 or 4, splitting might be good.
-                    if (computer.hands[0] === 2 || computer.hands[0] === 4) {
-                        performSplit('player2', 0); // Always split the first (only) hand
-                        return;
-                    }
+                    performSplit('player2', 0);
+                    return;
                 }
                 
                 // If no good split or not possible, then attack
+                
+                // try to kill a hand
+                for(let computerHandIndex=0; computerHandIndex<computer.hands.length; computerHandIndex++){
+                    const computerHands = computer.hands[computerHandIndex];
+                    for(let humanHandIndex=0; humanHandIndex<human.hands.length; humanHandIndex++){
+                        if(computerHands + human.hands[humanHandIndex] === 5){
+                            console.log("smart attack")
+                            performAttack('player2', computerHandIndex, 'player1', humanHandIndex);
+                            return;
+                        }
+                    }
+                }
+  
+                if(computer.hands.length === 1 && human.hands.length > 1 && human.hands[0] !== human.hands[1]){
+                    const firstIsCandidate = (2*computer.hands[0] + human.hands[0])%5 !== 0;
+                    const secondIsCandidate = (2*computer.hands[0] + human.hands[1])%5 !== 0;
+                    if (firstIsCandidate && secondIsCandidate){
+                        // TODO: case to improve
+                        performAttack('player2', 0, 'player1', 0);
+                    }
+                    else if(firstIsCandidate){
+                        performAttack('player2', 0, 'player1', 0);
+                    }
+                    else if(secondIsCandidate){
+                        performAttack('player2', 0, 'player1', 1);
+                    }
+                    else {
+                        // TODO: case to improve
+                        performAttack('player2', 0, 'player1', 0);
+                    }
+                    return;
+                }
+
+                // if not good attack, random
                 const computerHandIndex = Math.floor(Math.random() * computer.hands.length);
                 const humanHandIndex = Math.floor(Math.random() * human.hands.length);
                 performAttack('player2', computerHandIndex, 'player1', humanHandIndex);
