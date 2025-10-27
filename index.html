@@ -166,7 +166,7 @@
 
         .action-button {
             padding: 0.75rem 1.5rem;
-            font-size: 1rem;
+            font-size: 0.75rem;
             font-weight: bold;
             color: #fff;
             background-color: #2ecc71;
@@ -367,13 +367,13 @@
 
                 switch (difficulty) {
                     case 'easy':
-                        skillFactor = 1 - 0.5;  // 50% chance of optimal move
+                        skillFactor = 1 - 0.6666;  // 66.66% chance of optimal move
                         break;
                     case 'medium':
-                        skillFactor = 1 - 0.75;  // 75% chance of optimal move
+                        skillFactor = 1 - 0.80;  // 80% chance of optimal move
                         break;
                     case 'hard':
-                        skillFactor = 1 - 0.875;  // 87.5% chance of optimal move
+                        skillFactor = 1 - 0.95;  // 95% chance of optimal move
                         break;
                 }
                 for(let i=0; i<nextStates.length; i++){
