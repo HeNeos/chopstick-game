@@ -23,7 +23,7 @@
         /* --- Game Container --- */
         #game-board {
             width: 90%;
-            max-width: 700px; /* Slightly wider to accommodate hands better */
+            max-width: 700px;
             background: #ffffff;
             padding: 2rem;
             border-radius: 12px;
@@ -48,7 +48,7 @@
         /* --- Player Areas --- */
         .player-area {
             border: 3px solid #ddd;
-            padding: 1rem; /* Reduced padding to make room for hands */
+            padding: 1rem;
             margin: 1.5rem 0;
             border-radius: 10px;
             min-height: 180px;
@@ -70,20 +70,19 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 0.5rem; /* Reduced gap between hands */
+            gap: 0.5rem;
             min-height: 120px;
             flex-wrap: wrap;
         }
 
-        /* --- Hand Styling with SVG --- */
         .hand {
-            width: 120px; /* Size for the SVG hand container */
+            width: 120px;
             height: 140px;
             position: relative;
             cursor: pointer;
             user-select: none;
             transition: all 0.2s ease-in-out;
-            display: flex; /* To center the split button */
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -93,14 +92,6 @@
             transform: translateY(-5px);
         }
 
-        /* .hand.selected { */
-        /*     outline: 4px solid #e74c3c; */
-        /*     outline-offset: 4px; */
-        /*     border-radius: 15px; */
-        /*     box-shadow: 0 0 20px rgba(231, 76, 60, 0.7); */
-        /*     transform: scale(1.05) translateY(-5px); */
-        /* } */
-        
         .hand.non-interactive {
             cursor: not-allowed;
             opacity: 0.7;
@@ -112,7 +103,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1; /* Place SVG behind text/button */
+            z-index: 1;
         }
 
         .hand-sprite {
@@ -183,7 +174,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
-            z-index: 3; /* Ensure button is clickable */
+            z-index: 3;
             position: relative;
         }
         
@@ -204,7 +195,7 @@
             background-color: #2980b9;
         }
 
-        .hand .action-button { /* Styling for the split button inside hand */
+        .hand .action-button {
             position: absolute;
             bottom: 5px;
             left: 50%;
@@ -239,10 +230,12 @@
         <div id="controls">
             <button id="restart-btn" class="action-button">Restart Game</button>
             <button id="mode-switch-btn" class="action-button">Play vs Human</button>
+            <button id="difficulty-btn" class="action-button">Difficulty: Medium</button>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import markov from "./markov.json" with { type: "json" };;
         document.addEventListener('DOMContentLoaded', () => {
 
             const statusDisplay = document.getElementById('game-status');
@@ -254,14 +247,52 @@
             const player2Name = document.getElementById('player2-name');
             const restartBtn = document.getElementById('restart-btn');
             const modeSwitchBtn = document.getElementById('mode-switch-btn');
+            const difficultyBtn = document.getElementById('difficulty-btn');
+            difficultyBtn.addEventListener('click', () => {
+                const levels = ['easy', 'medium', 'hard'];
+                let currentIndex = levels.indexOf(gameState.difficulty);
+                gameState.difficulty = levels[(currentIndex + 1) % levels.length];
+                difficultyBtn.textContent = `Difficulty: ${gameState.difficulty.charAt(0).toUpperCase() + gameState.difficulty.slice(1)}`;
+            });
 
-            // --- Game State ---
+            function encodeState(cHands, hHands, turn) {
+                let computerHands = cHands.slice();
+                let humanHands = hHands.slice();
+                let value = 0;
+                if(computerHands.length === 2 && computerHands[0] < computerHands[1]){
+                    computerHands[0] += computerHands[1];
+                    computerHands[1] = computerHands[0] - computerHands[1];
+                    computerHands[0] = computerHands[0] - computerHands[1];
+                }
+                for(let i=0; i<computerHands.length; i++){
+                    value *= 10;
+                    value += computerHands[i];
+                }
+                if(computerHands.length === 1) value *= 10;
+                if(humanHands.length === 2 && humanHands[0] < humanHands[1]){
+                    humanHands[0] += humanHands[1];
+                    humanHands[1] = humanHands[0] - humanHands[1];
+                    humanHands[0] = humanHands[0] - humanHands[1];
+                }
+                for(let i=0; i<humanHands.length; i++){
+                    value *= 10;
+                    value += humanHands[i];
+                }
+                if(humanHands.length === 1) value *= 10;
+                value *= 10;
+                if(turn === "player1") value += 1;
+                else value += 2
+                return value;
+            }
+
             let gameState = {};
 
             function initializeGame() {
-                // Set default mode if not already set
                 if (gameState.gameMode === undefined) {
                     gameState.gameMode = 'pvc'; // 'pvc' (Player vs Computer) or 'pvp' (Player vs Player)
+                }
+                if (gameState.difficulty === undefined) {
+                    gameState.difficulty = 'medium'; // 'easy', 'medium', or 'hard'
                 }
 
                 gameState.players = {
@@ -284,7 +315,6 @@
                 gameState.selectedHand = null;
                 gameState.gameOver = false;
                 gameState.message = `${gameState.players.player1.name}'s Turn! Select one of your hands.`;
-                
                 updateDisplay();
             }
 
@@ -312,11 +342,81 @@
                     player.hands = [newHandValue, newHandValue];
                     switchTurn();
                 } else {
-                    // This case should ideally be prevented by button visibility
                     console.warn("Invalid split attempt.");
                     gameState.message = "Invalid split. You can only split a single even hand.";
                     updateDisplay();
                 }
+            }
+
+            function bestMovement(stateEncoded, computerHands, humanHands){
+                let markovNode = markov[stateEncoded];
+                if(markovNode === undefined){
+                    console.log("Unknown state");
+                    console.log(stateEncoded, computerHands, humanHands);
+                    return false;
+                }
+                let nextStates = markovNode["edges"];
+                if(nextStates.length === 0){
+                    console.log("No edges?");
+                    console.log(stateEncoded, computerHands, humanHands);
+                    return false;
+                }
+                let bestIndex = -1;
+                let difficulty = gameState.difficulty || 'medium';
+                let skillFactor;
+
+                switch (difficulty) {
+                    case 'easy':
+                        skillFactor = 1 - 0.5;  // 50% chance of optimal move
+                        break;
+                    case 'medium':
+                        skillFactor = 1 - 0.75;  // 75% chance of optimal move
+                        break;
+                    case 'hard':
+                        skillFactor = 1 - 0.875;  // 87.5% chance of optimal move
+                        break;
+                }
+                for(let i=0; i<nextStates.length; i++){
+                    let randomValue = Math.random();
+                    if(randomValue > skillFactor) {bestIndex = i; break;}
+                    else skillFactor /= 1.5;
+                }
+                if(bestIndex === -1) bestIndex = 0;
+                nextStates.sort(function(a, b) {return b["probability"]-a["probability"];});
+                const nextComputerHands = nextStates[bestIndex]["node"][0];
+                const nextHumanHands = nextStates[bestIndex]["node"][1];
+
+                const humanPlayer = gameState.players["player1"];
+                const computerPlayer = gameState.players["player2"];
+
+                // Human keeps its state, then computer splitted
+                if(computerHands.length === 1 && nextComputerHands[0] === nextComputerHands[1] && computerHands[0] == 2*nextComputerHands[0]){
+                    performSplit("player2", 0);
+                    return true;
+                }
+                
+                for(let i=0; i<computerHands.length; i++){
+                    for(let j=0; j<humanHands.length; j++){
+                        let nextHand = (computerHands[i] + humanHands[j])%5;
+                        if(humanHands.length === 1){
+                            if(nextHand === nextHumanHands[0]){
+                                performAttack("player2", i, "player1", 0);
+                                return true;
+                            }
+                        }
+                        else{
+                            let anotherHand = humanHands[1-j];
+                            const minHand = anotherHand < nextHand ? anotherHand : nextHand;
+                            const maxHand = anotherHand > nextHand ? anotherHand : nextHand;
+                            if(minHand === nextHumanHands[1] && maxHand === nextHumanHands[0]){
+                                performAttack("player2", i, "player1", j);
+                                return true;
+                            }
+                        }
+                    }
+                } 
+
+                return false;
             }
 
             function switchTurn() {
@@ -329,7 +429,7 @@
                 if (gameState.gameMode === 'pvc' && gameState.currentPlayerKey === 'player2') {
                     gameState.message = `${currentPlayerName}'s Turn...`;
                     updateDisplay();
-                    setTimeout(computerMove, 1200);
+                    setTimeout(computerMove, 1000);
                 } else {
                     gameState.message = `${currentPlayerName}'s Turn! Select a hand.`;
                     updateDisplay();
@@ -359,11 +459,18 @@
                 const human = gameState.players.player1;
 
                 if (computer.hands.length === 0 || human.hands.length === 0) {
-                    switchTurn(); // Game should already be over, but as a failsafe
+                    switchTurn();
                     return;
                 }
 
-                // Initial movement
+                let stateEncoded = encodeState(computer.hands, human.hands, "player2");
+
+                // TODO: always performs best movement
+                const performedMovement = bestMovement(stateEncoded, computer.hands, human.hands);
+                if(performedMovement) return;
+
+
+                 // Initial movement
                 if (computer.hands.length === 2 && human.hands.length === 2 && human.hands[0] === 1 && human.hands[1] === 1) {
                     if(computer.hands[0] === 1 && computer.hands[1] === 2){
                         performAttack('player2', 0, 'player1', 0);
@@ -423,6 +530,7 @@
                     return;
                 }
 
+
                 // if not good attack, random
                 const computerHandIndex = Math.floor(Math.random() * computer.hands.length);
                 const humanHandIndex = Math.floor(Math.random() * human.hands.length);
@@ -438,20 +546,13 @@
                 const isLeft = (ownerKey === 'player1' && index === 0) || (ownerKey === 'player2' && index === 1);
                 if (isLeft) handDiv.classList.add('left');
 
-                // Choose a color row per player (0–4)
-                const colorRow = ownerKey === 'player1' ? 2 : 3; // example: player1 blue, player2 green
+                const colorRow = ownerKey === 'player1' ? 2 : 3;
 
-                // Each frame size (since sprite is 160x160 and 5x5 grid)
                 const frameWidth = 128;
                 const frameHeight = 128;
 
-                // Calculate background position
                 const bgX = (-value + 1) * frameWidth;
                 const bgY = -colorRow * frameHeight;
-
-                // handSprite.style.width = `${frameWidth * scale}px`;
-                // handSprite.style.height = `${frameHeight * scale}px`;
-                // handSprite.style.backgroundSize = `${160 * scale}px ${160 * scale}px`;
 
                 const handSprite = document.createElement('div');
                 handSprite.classList.add('hand-sprite');
@@ -459,7 +560,6 @@
 
                 handDiv.appendChild(handSprite);
 
-                // Add click interaction if applicable
                 const isComputerTurn = gameState.gameMode === 'pvc' && gameState.currentPlayerKey === 'player2';
                 if (!gameState.gameOver && !isComputerTurn) {
                     handDiv.onclick = () => handleHandClick(ownerKey, index);
@@ -471,7 +571,6 @@
                     handDiv.classList.add('selected');
                 }
 
-                // Handle splitting logic
                 const player = gameState.players[ownerKey];
                 const canSplit = player.hands.length === 1 && value > 0 && value % 2 === 0;
 
@@ -488,83 +587,6 @@
 
                 return handDiv;
             }
-
-
-
-            // function createHandElement(ownerKey, index, value) {
-            //     const handDiv = document.createElement('div');
-            //     handDiv.classList.add('hand');
-            //
-            //     // Create SVG for the hand
-            //     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            //     svg.setAttribute('class', 'hand-svg');
-            //     svg.setAttribute('viewBox', '0 0 120 140'); // Adjust viewBox for better fit
-            //     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            //
-            //     // Palm (simple rounded rectangle)
-            //     const palm = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            //     palm.setAttribute('x', '20');
-            //     palm.setAttribute('y', '70');
-            //     palm.setAttribute('width', '80');
-            //     palm.setAttribute('height', '60');
-            //     palm.setAttribute('rx', '15');
-            //     palm.setAttribute('ry', '15');
-            //     palm.classList.add('palm');
-            //     svg.appendChild(palm);
-            //
-            //     // Fingers (position from left to right, adjusted for hand shape)
-            //     const fingerPositions = [
-            //         { x: 70, y: 15, width: 12, height: 60 }, // Index
-            //         { x: 55, y: 10, width: 14, height: 65 }, // Middle
-            //         { x: 40, y: 15, width: 12, height: 60 }, // Ring
-            //         { x: 25, y: 30, width: 10, height: 45 }, // Pinky
-            //         { x: 85, y: 40, width: 10, height: 35 }  // Thumb (shorter, to the side)
-            //     ];
-            //
-            //     for (let i = 0; i < 5; i++) {
-            //         const finger = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            //         finger.setAttribute('x', fingerPositions[i].x);
-            //         finger.setAttribute('y', fingerPositions[i].y);
-            //         finger.setAttribute('width', fingerPositions[i].width);
-            //         finger.setAttribute('height', fingerPositions[i].height);
-            //         finger.setAttribute('rx', '5');
-            //         finger.setAttribute('ry', '5');
-            //         finger.classList.add('finger');
-            //         if (i >= value) {
-            //             finger.classList.add('folded');
-            //         }
-            //         svg.appendChild(finger);
-            //     }
-            //
-            //     handDiv.appendChild(svg);
-            //
-            //     const isComputerTurn = gameState.gameMode === 'pvc' && gameState.currentPlayerKey === 'player2';
-            //     if (!gameState.gameOver && !isComputerTurn) {
-            //         handDiv.onclick = () => handleHandClick(ownerKey, index);
-            //     } else {
-            //         handDiv.classList.add('non-interactive');
-            //     }
-            //
-            //     if (gameState.selectedHand && gameState.selectedHand.ownerKey === ownerKey && gameState.selectedHand.index === index) {
-            //         handDiv.classList.add('selected');
-            //     }
-            //
-            //     const player = gameState.players[ownerKey];
-            //     const canSplit = player.hands.length === 1 && value > 0 && value % 2 === 0;
-            //
-            //     if (ownerKey === gameState.currentPlayerKey && canSplit) {
-            //         const splitBtn = document.createElement('button');
-            //         splitBtn.textContent = 'Split';
-            //         splitBtn.classList.add('action-button');
-            //         splitBtn.onclick = (e) => {
-            //             e.stopPropagation();
-            //             performSplit(ownerKey, index);
-            //         };
-            //         handDiv.appendChild(splitBtn);
-            //     }
-            //
-            //     return handDiv;
-            // }
             
             function updateDisplay() {
                 statusDisplay.textContent = gameState.message;
